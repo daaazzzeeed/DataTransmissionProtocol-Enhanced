@@ -8,106 +8,144 @@
 Device::Device(int address, int dispatchInterval)
 {
     this->address = address;
-    name = "device0" + address;
+    name = "device at 0x" + std::to_string(address);
     dataDispatchInterval = dispatchInterval;
     parentRouter = nullptr;
-    parentRouterPortIndex = -1;
-    timeToNextDispatch = dispatchInterval;
+    timeToNextDispatch = dataDispatchInterval;
     deltaTime = 1;
-    dataToSend = {};
-    dataSizeLeftToSend = -1;
-    currentByteTransmissionProgress = 1;
-    responseData = {};
+    dataToSendRaw = {};
+    dataToSendPrepared= {};
+    inDataRaw = {};
+    inDataProcessed = {};
     statistics = {0, 0, 0};
+    currentTime = 0;
 }
 
-void Device::GenerateData(int payloadSize, int destination)
+void Device::GenerateData()
 {
     // generate data and write it to 'dataToSend' property
 
     // first remove all data
-    dataToSend.clear();
+    dataToSendRaw.clear();
 
     // add header data and payload size
-    dataToSend = {
+    std::cout << "*****" << payloadSize << "*****" << std::endl;
+    dataToSendRaw = {
                 MESSAGE_START,
-                std::to_string(address),
-                std::to_string(destination),
-                std::to_string(payloadSize)
+                address,
+                destAddress,
+                payloadSize
     };
 
     // define max and min values in payload
-    int max = 1000;
-    int min = 1;
+    int max = 254;
+    int min = 2;
     int range = max - min;
 
     // fill the package with payload
     for (int i = 0; i < payloadSize; i++)
     {
-        dataToSend.push_back(std::to_string(rand() % range + min));
+        dataToSendRaw.push_back(rand() % range + min);
     }
 
     // add ending character to a package
-    dataToSend.push_back(MESSAGE_END);
-    // update dataSizeLeftToSend
-    dataSizeLeftToSend = dataToSend.size();
-    currentByteTransmissionProgress = 1; // currently byte is stored fully in device
+    dataToSendRaw.push_back(MESSAGE_END);
+
+    // convert bytes to bits
+    for (auto item : dataToSendRaw)
+    {
+        std::bitset<8> binaryItem(item);
+
+        for (auto bitChar : binaryItem.to_string())
+        {
+            int bit = bitChar - '0';
+            dataToSendPrepared.push_back(bit);
+        }
+    }
+
+    //std::cout << vector_to_string(dataToSendPrepared) << std::endl;
 }
 void Device::SendData()
 {
     // device has data to send
-    if (dataSizeLeftToSend > 0)
+    if (dataToSendPrepared.size() > 0)
     {
-        if (currentByteTransmissionProgress == 0)
-        {
-            // check if current byte is completely transmitted
-             currentByteTransmissionProgress = 1;
+        // fetch data
+        int data = dataToSendPrepared[0];
+        //std::cout << data << std::endl;
+        // crop vector
+        auto first = dataToSendPrepared.begin() + 1;
+        auto last = dataToSendPrepared.end();
 
-             std::cout << dataToSend[dataToSend.size() - dataSizeLeftToSend] << std::endl;
-             dataSizeLeftToSend--;
-        }
-        else
+        dataToSendPrepared = std::vector(first, last);
+
+        // find router's target port
+        double targetPort = -1;
+        // fetch connected devices of a parent router
+        auto connected = parentRouter->GetConnectedDevices();
+
+        // compare each device address to a current address
+
+        for (auto it = connected.begin(); it != connected.end(); it++)
         {
-            // send a batch of data to a parent router
-            currentByteTransmissionProgress -= dataAtOneMicrosecond;
+            if (it->second->GetAddress() == address)
+            {
+                targetPort = it->first;
+                break;
+            }
         }
+
+        // finally send data to target port
+        parentRouter->Receive(data, targetPort);
     }
     else
     {
-        if (!dataToSend.empty())
-        {
-            std::cout << "Package was sent" << std::endl;
-            statistics[0]++;
-            // device has no data to send
-            dataToSend.clear();
-            currentByteTransmissionProgress = 1.0;
-            dataSizeLeftToSend = 0;
-        }
+        std::cout << "Package " << vector_to_string(dataToSendRaw) << " was sent by " << name << std::endl;
+        statistics[0]++;
+        // device has no data to send
+        dataToSendRaw.clear();
     }
 }
 
 void Device::Run() {
-    if (timeToNextDispatch == 0)
-    {
-        statistics[2]++; // dispatch cycles incrementation
+    //std::cout << name + " : TTND: " << timeToNextDispatch << std::endl;
+    //std::cout << name + " : Data to send prepared left: " << dataToSendPrepared.size() << std::endl;
 
-        if (dataToSend.empty())
+    if (dataDispatchInterval != -1)
+    {
+        if (timeToNextDispatch == 0 && dataToSendPrepared.empty())
         {
-            GenerateData(); // initially generate new data
-            std::cout << vector_to_string(dataToSend) << std::endl;
-        }
+            statistics[2]++; // dispatch cycles incrementation
 
-        SendData(); // send a batch of data to a parent router
-        timeToNextDispatch = dataDispatchInterval-1;
-    }
-    else
-    {
-        SendData(); // send a batch of data to a parent router
-        timeToNextDispatch -= deltaTime;
+            if (dataToSendPrepared.empty())
+            {
+                GenerateData(); // initially generate new data
+                std::cout << "Package " << vector_to_string(dataToSendRaw) << " was generated by " << name << std::endl;
+                std::ofstream file;
+                file.open("stats.txt", std::ios::app);
+                file << currentTime << ": created " << vector_to_string(dataToSendRaw) << "\n";
+                file.close();
+            }
+
+            SendData(); // send a batch of data to a parent router
+            timeToNextDispatch = dataDispatchInterval-1;
+        }
+        else if (timeToNextDispatch != 0 && !dataToSendPrepared.empty() ||
+                timeToNextDispatch == 0 && !dataToSendPrepared.empty())
+        {
+            SendData(); // send a batch of data to a parent router
+            timeToNextDispatch -= deltaTime;
+        }
+        else
+        {
+            timeToNextDispatch -= deltaTime;
+        }
     }
 
     // check the response data
-    ReceiveData();
+    HandleInData();
+
+    currentTime += deltaTime;
 }
 
 std::vector<int> Device::GetStatistics()
@@ -115,24 +153,70 @@ std::vector<int> Device::GetStatistics()
     return statistics;
 }
 
-void Device::ReceiveData()
+void Device::Receive(int data, int port)
 {
-    // receive response data
-    if (responseData.back() == MESSAGE_END)
-    {
-        // handle the response
-        // then clear the response data
-        responseData.clear();
-    }
+    inDataRaw.push_back(data);
 }
 
-void Device::ConnectToRouter(Router *router, int portIndex)
+void Device::ConnectTo(IConnectable* device, int port)
 {
-    parentRouter = router;
-    parentRouterPortIndex = portIndex;
+    parentRouter = device;
 }
 
 std::string Device::GetName()
 {
     return name;
 }
+
+void Device::HandleInData()
+{
+    if (inDataRaw.size() == 8)
+    {
+        std::string binary = "";
+
+        for (auto bit : inDataRaw)
+        {
+            binary += std::to_string(bit);
+        }
+
+        int processedByte = binaryStringToInt(binary);
+        inDataProcessed.push_back(processedByte);
+        inDataRaw.clear();
+
+        if (inDataProcessed.back() == MESSAGE_END)
+        {
+            std::cout << "Package " << vector_to_string(inDataProcessed) << " was received " << " by " << name << std::endl;
+            std::ofstream file;
+            file.open("stats.txt", std::ios::app);
+            file << currentTime << ": reached destination " << vector_to_string(inDataProcessed) << "\n";
+            file.close();
+            inDataProcessed.clear();
+            statistics[1]++;
+        }
+    }
+}
+
+double Device::GetAddress()
+{
+    return address;
+}
+
+
+std::map<int, IConnectable*> Device::GetConnectedDevices()
+{
+    return {{0, parentRouter}};
+}
+
+void Device::SetDestination(double dest)
+{
+    destAddress = dest;
+}
+
+
+void Device::SetPayloadSize(double size)
+{
+    payloadSize = size;
+}
+
+
+

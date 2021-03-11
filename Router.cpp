@@ -10,28 +10,35 @@ Router::Router(std::string name, int portCount, int maxBufSize)
     this->name = name;
     portsCount = portCount;
     maximumBufferSize = maxBufSize;
+    ConnectedDevices = {};
+    Connections = {};
+    currentTime = 0;
+    deltaTime = 1;
 
     // init ports data and buffers
     for (int i = 0; i < portsCount; i++)
     {
-        std::map<std::string, double> item;
-        item["state"] = States::Idle;
-        item["dataSizeLeft"] = 0;
-        item["currentByteProgress"] = 1.0;
-        portsData.push_back(item);
+        int initialState = States::Idle;
+        portStates[i] = initialState;
 
-        std::vector<std::string> portBuffer = {};
-        portBuffers.push_back(portBuffer);
+        std::vector<int> initialRawData = {};
+        portsRawData[i] = initialRawData;
 
-        currentTime = 0;
+        std::vector<double> initialProcessedData = {};
+        portsProcessedData[i] = initialProcessedData;
     }
 }
 
 void Router::Run()
 {
-    for (int i = 0; i < portsData.size(); i++)
+    std::cout << "\n---------------" << name << "---------------" << std::endl;
+
+    for (int i = 0; i < portsCount; i++)
     {
-        int currentState = portsData[i]["state"];
+        int currentState = portStates[i];
+
+        std::cout << "---------------PORT [" << i << "]---------------" << std::endl;
+        std::cout << "State: " << stateNames[currentState] << std::endl;
 
         /**
          * ---------------------------------------------------
@@ -40,82 +47,111 @@ void Router::Run()
          * Possible conversions:
          * ---------------------------------------------------
          * 1.
-         *  Idle -> Receiving -> Sending Internal -> Idle
-         *                         (Optional)
+         *       Idle -> Receiving -> Processing -> Idle
          *
          * In this case port is receiving data and then
          * optionally redirects data to another port of
          * the router for a further handling.
          * ---------------------------------------------------
          * 2.
-         *  Idle -> Receiving Internal -> Sending -> Idle
-         *                              (Optional)
+         *          Idle -> Sending -> Idle
          *
          * In this case port is receiving data from another
          * port and then optionally sends data to a connected
          * device for a further handling.
          * ---------------------------------------------------
          */
+        //std::cout << "State: " << currentState << std::endl;
+       /* for (int k = 0; k < portsCount; k++)
+        {
+            std::cout << "Raw data [" << k << "] :" << vector_to_string(portsRawData[k]) << std::endl;
+        }*/
+
+        std::string binary = "";
+
         switch (currentState)
         {
             case States::Idle:
-                if (portsData[i]["currentByteProgress"] < 1.0) // some data was already sent
+                if (portsRawData[i].size() > 0) // some data was already received
                 {
-                    portsData[i]["state"] = States::Receiving; // achieve state 'Receiving'
+                    portStates[i]= States::Receiving; // achieve state 'Receiving'
                 }
                 break;
             case States::Sending:
-                break;
-            case States::SendingInternal:
-                if (portsData[i]["dataSizeLeft"] > 0) // if package is not transmitted in full yet
+                if (portsRawData[i].size() > 0)
                 {
-                    // at this time target port is considered to be free (as it is occupied by current transmission)
-                    // fetch target port from a commutation table
-                    int targetPort = commutationTable[portBuffers[i][1]];
-
-                    // if current byte is not transmitted fully yet
-                    if (portsData[i]["currentByteProgress"] > 0.0)
+                    if (!PackageJustDelivered[i])
                     {
-                        // transmit a batch of data
-                        portsData[i]["currentByteProgress"] -= dataAtOneMicrosecond;
+                        //std::cout << portsRawData[i].size() << std::endl;
+                        int data = portsRawData[i][0];
+                        auto first = portsRawData[i].begin() + 1;
+                        auto last = portsRawData[i].end();
+                        portsRawData[i] = std::vector(first, last);
+                        ConnectedDevices[i]->Receive(data);
                     }
                     else
                     {
-                        // update current byte progress
-                        portsData[i]["currentByteProgress"] = 1.0;
-                        // send current byte to a target port
-                        int dataSizeLeft = portsData[i]["dataSizeLeft"];
-                        int currentBufferSize = portBuffers[i].size();
-                        portBuffers[targetPort].push_back(portBuffers[i][currentBufferSize - dataSizeLeft]);
-                        portsData[i]["dataSizeLeft"]--;
+                        PackageJustDelivered[i] = false;
                     }
                 }
                 else
                 {
-                    // package was fully transmitted
-                    // clear current buffer
-                    portBuffers[i] = {};
-                    // clear current byte progress
-                    portsData["currentByteProgress"] = 1.0;
-                    // clear data size left
-                    portsData["dataSizeLeft"] = 0.0;
-                }
+                    // free current port
+                    portStates[i] = States::Idle;
 
+                    // free connected port
+                    portStates[Connections[i]] = States::Idle;
+
+                    std::cout << "---Package was sent from a port" << i << "---" << std::endl;
+
+                }
                 break;
             case States::Receiving:
-                if (portsData[i]["currentByteProgress"] == 1.0) // if byte was completely received
+                // port has 1 byte of raw data in it
+                if (portsRawData[i].size() % 8 == 0)
                 {
+                   // std::cout << vector_to_string(portsRawData[i]) << std::endl;
+                    // convert 8 bits to 1 byte
+                    std::string bits = "";
+
+                    // copy contents of byte to string
+                    for (int j = 0; j < 8; j++)
+                    {
+                        bits += std::to_string(portsRawData[i][j]);
+                    }
+
+                   // std::cout << "bits : " << bits << std::endl;
+
+                    // clear raw data
+                    if (portsRawData[i].size() > 8)
+                    {
+                        portsRawData[i] = std::vector(portsRawData[i].begin() + 8, portsRawData[i].end());
+                    }
+                    else
+                    {
+                        portsRawData[i].clear();
+                    }
+
+                    portsProcessedData[i].push_back(binaryStringToInt(bits));
+
                     // check that byte if it's end char
                     // if so then package is completely received
-                    if (portBuffers[i].back() == MESSAGE_END)
+                  //  std::cout << "--------------" << portsProcessedData[i].back() << "--------------" << std::endl;
+                    if (portsProcessedData[i].back() == MESSAGE_END)
                     {
+                        std::cout << "---Package " << vector_to_string(portsProcessedData[i]) << " was received by port " << i << " of " << name << std::endl;
                         // now package is completely received and can be inspected
                         // now check if transmission is allowed
                         // transmission is allowed if there is a record with current port index
                         // and target port in the schedule
 
                         // fetch target port from a commutation table
-                        int targetPort = commutationTable[portBuffers[i][1]];
+                        int targetPort = commutationTable[portsProcessedData[i][2]];
+
+                        // add new connection
+                        Connections[targetPort] = i;
+
+                       // std::cout << "Target port is " << targetPort  << std::endl;
 
                         // find out if there is any schedule slot
                         bool found = false;
@@ -124,7 +160,8 @@ void Router::Run()
                         for (auto item : schedule)
                         {
                             // check if selected time slot is ok
-                            if (item[0] > currentTime && currentTime > item[1] )
+                           // std::cout << item[0] << ", " << currentTime << ", " << item[1] << std::endl;
+                            if (item[0] < (int)currentTime && (int)currentTime < item[1] )
                             {
                                 // update flag
                                 found = true;
@@ -140,16 +177,39 @@ void Router::Run()
                         if (found)
                         {
                             // check if target port is free (state == Idle)
-                            if (portsData[targetPort]["state"] == States::Idle)
+                            if (portStates[targetPort] == States::Idle)
                             {
                                 // target port is free
-                                portsData[i]["state"] = States::SendingInternal;
+                                portStates[i] = States::Waiting;
+                                portStates[targetPort] = States::Sending;
+                                PackageJustDelivered[targetPort] = true;
+                                portsProcessedData[targetPort] = portsProcessedData[i];
+                                portsProcessedData[i].clear();
+
+                                // fill raw data with bits of processed data
+                                // reverse transformation of processed to raw data
+                                for (auto dataItem : portsProcessedData[targetPort])
+                                {
+                                    std::bitset<8> processedDataAsBits(dataItem);
+                                    std::string processedDataAsBitsToString = processedDataAsBits.to_string();
+
+                                    for (auto bitChar : processedDataAsBitsToString)
+                                    {
+                                        int bit = bitChar - '0';
+                                        portsRawData[targetPort].push_back(bit);
+                                    }
+                                }
+
+                                std::cout << "---Package was sent to a port " << targetPort << "---" << std::endl;
+
                             }
                             else
                             {
                                 // target port is busy
                                 // decline package
                                 hasToBeDeclined = true;
+                                std::cout << "---Package will be declined!---" << std::endl;
+                                std::cout << "---Target port is busy---" << std::endl;
                             }
                         }
                         else
@@ -157,40 +217,48 @@ void Router::Run()
                             // schedule slot not found
                             // decline package
                             hasToBeDeclined = true;
+                            std::cout << "---Package will be declined!---" << std::endl;
+                            std::cout << "---Schedule not found---" << std::endl;
                         }
 
                         // if package must be declined for one of the 2 mentioned above reasons
                         if (hasToBeDeclined)
                         {
                             // set state to Idle and free port
-                            portsData[i]["state"] = States::Idle;
+                            portStates[i] = States::Idle;
                             // clear buffer
-                            portBuffers[i] = {};
+                            portsProcessedData[i] = {};
                             // reset currentByteProgress
-                            portsData[i]["currentByteProgress"] = 1.0;
+                            portsRawData[i] = {};
                         }
                     }
                 }
+
                 break;
-            case ReceivingInternal:
+            case States::Waiting:
+                for (int pos = portsRawData[i].size()-1; pos > portsRawData[i].size()-1-8; pos--)
+                {
+                    binary += std::to_string(portsRawData[i][pos]);
+                }
+
+                if (binaryStringToInt(binary) == MESSAGE_END)
+                {
+                    std::cout << "---Package was received but can't be processed---\n---Port is busy---\n---Package will be declined---" << std::endl;
+                }
+
                 break;
             default:
+                std::cout << "---State Error---\n---Wrong state was set!---" << std::endl;
                 break;
         }
+
     }
+
+    currentTime += deltaTime;
 }
 
-void Router::ConnectDevice(int portIndex, Device* device)
-{
 
-}
-
-void Router::ConnectRouter(int portIndex, Router* router)
-{
-
-}
-
-void Router::AddCommutationTable(std::map<std::string, int> commutationTable)
+void Router::AddCommutationTable(std::map<int, int> commutationTable)
 {
     this->commutationTable = commutationTable;
 }
@@ -198,4 +266,26 @@ void Router::AddCommutationTable(std::map<std::string, int> commutationTable)
 void Router::AddSchedule(std::vector<std::vector<int>> schedule)
 {
     this->schedule = schedule;
+}
+
+void Router::Receive(int data, int port)
+{
+    // pass raw data to a buffer
+    portsRawData[port].push_back(data);
+}
+
+void Router::ConnectTo(IConnectable* device, int port)
+{
+    // FIXME: NO two-sided connection
+    ConnectedDevices[port] = device;
+}
+
+std::map<int, IConnectable*> Router::GetConnectedDevices()
+{
+    return ConnectedDevices;
+}
+
+double Router::GetAddress()
+{
+    return address;
 }

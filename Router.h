@@ -9,49 +9,54 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "IConnectable.h"
+#include <cassert>
 
 /**
  * This is an implementation of a router.
+ * --------------------------------------------------------------------------
  * It has two modes: async and sync.
  * Second mode implements schedule-wise routing.
  **/
 class Device;
-class Router {
+class Router : public IConnectable{
 private:
     std::string name; // router name
+    double address;
     int portsCount; // number of ports
     int maximumBufferSize; // maximum buffer size in bytes
-    const double dataAtOneMicrosecond = 0.125;
+    const double dataAtOneMicrosecond = 0.125; // bytes
     double currentTime; // current time to work with the schedule
-    const std::string MESSAGE_START = "START"; // indicates start of packet
-    const std::string MESSAGE_END = "END"; // indicates end of packet
+    double deltaTime;
+    const double MESSAGE_END = 0xFF; // indicates end of packet
+    std::map<int, IConnectable*> ConnectedDevices;
+    std::map<int, bool> PackageJustDelivered;
 
     /**
-     * data for each port
+     * raw data for each port
      * --------------------------------------------------------------------------
-     * including:
-     * - state
-     * - data size left
-     * - current byte progress
      */
-    std::vector<std::map<std::string, double>> portsData;
-
+    std::map<int, std::vector<int>> portsRawData;
 
     /**
-     * buffer for each port
+     * processed data for each port
      * --------------------------------------------------------------------------
-     * containing package data
      */
+    std::map<int, std::vector<double>> portsProcessedData;
 
-    std::vector<std::vector<std::string>> portBuffers;
+    /**
+     * each port state
+     * --------------------------------------------------------------------------
+     */
+    std::map<int, int> portStates;
 
     /**
      *  commutation table
      *  --------------------------------------------------------------------------
-     *  each key specifies device-receiver name
+     *  each key specifies device-receiver address
      *  each value specifies port on which data will be sent
      */
-    std::map<std::string, int> commutationTable;
+    std::map<int, int> commutationTable;
 
     /**
      *  schedule
@@ -72,18 +77,42 @@ private:
     {
         Idle = 0,
         Receiving = 1,
-        ReceivingInternal = 2,
-        SendingInternal = 3,
-        Sending = 4
+        Sending = 2,
+        Waiting = 3
     };
+
+
+    /**
+     *  State names
+     *  --------------------------------------------------------------------------
+     *  state name of each state digital code
+     */
+    std::map<int, std::string> stateNames =
+            {
+                {0, "Idle"},
+                {1, "Receiving"},
+                {2, "Sending"},
+                {3, "Waiting"}
+            };
+
+    /**
+     *  Current connections
+     *  --------------------------------------------------------------------------
+     *  Contains pairs of ports linked to each other
+     */
+
+    std::map<int, int> Connections;
+
 
 public:
     Router(std::string name, int portCount, int maxBufSize);
+    void Receive(int data, int port=0);
+    void ConnectTo(IConnectable* device, int port=0);
     void Run();
-    void ConnectDevice(int portIndex, Device* device);
-    void ConnectRouter(int portIndex, Router* router);
-    void AddCommutationTable(std::map<std::string, int> commutationTable);
+    void AddCommutationTable(std::map<int, int> commutationTable);
     void AddSchedule(std::vector<std::vector<int>> schedule);
+    std::map<int, IConnectable*> GetConnectedDevices();
+    double GetAddress();
 };
 
 
