@@ -28,9 +28,29 @@ private:
     const double dataAtOneMicrosecond = 0.125; // bytes
     double currentTime; // current time to work with the schedule
     double deltaTime;
+    const double MESSAGE_START = 0x1; // indicates start of packet
     const double MESSAGE_END = 0xFF; // indicates end of packet
+    const double REQUEST = 0xFE; // indicates request
+    const double RESPONSE_OK = 0xFD; // indicates granted request
+    const double RESPONSE_BAD = 0xFC; // indicates denied request
     std::map<int, IConnectable*> ConnectedDevices;
     std::map<int, bool> PackageJustDelivered;
+    double responseResult;
+    bool sendResponse(int port);
+    void generateResponseForPort(int port);
+
+
+    /**
+     * raw response data for each port
+     * --------------------------------------------------------------------------
+     */
+    std::map<int, std::vector<double>> responseRaw; // current response transmitting to a device in bytes
+
+    /**
+     * prepared response data for each port
+     * --------------------------------------------------------------------------
+     */
+    std::map<int, std::vector<double>> responsePrepared; // current response transmitting to a device in bits
 
     /**
      * raw data for each port
@@ -61,12 +81,13 @@ private:
     /**
      *  schedule
      *  --------------------------------------------------------------------------
-     *  each item indicates that transmission is allowed in a given time interval
-     *  each item has following structure:
+     *  contains schedule for each port
+     *  each schedule item indicates that transmission is allowed in a given time interval
+     *  each schedule item has following structure:
      *  - time, start of the permitted interval
      *  - time, end of the permitted interval
      */
-    std::vector<std::vector<int>> schedule;
+    std::map<int, std::vector<std::vector<int>>> schedule;
 
     /**
      *  States
@@ -78,7 +99,8 @@ private:
         Idle = 0,
         Receiving = 1,
         Sending = 2,
-        Waiting = 3
+        Waiting = 3,
+        Responding = 4
     };
 
 
@@ -92,7 +114,8 @@ private:
                 {0, "Idle"},
                 {1, "Receiving"},
                 {2, "Sending"},
-                {3, "Waiting"}
+                {3, "Waiting"},
+                {4, "Responding"}
             };
 
     /**
@@ -101,7 +124,7 @@ private:
      *  Contains pairs of ports linked to each other
      */
 
-    std::map<int, int> Connections;
+    //std::map<int, int> Connections;
 
 
 public:
@@ -110,7 +133,7 @@ public:
     void ConnectTo(IConnectable* device, int port=0);
     void Run();
     void AddCommutationTable(std::map<int, int> commutationTable);
-    void AddSchedule(std::vector<std::vector<int>> schedule);
+    void AddSchedule(int port, std::vector<std::vector<int>> schedule);
     std::map<int, IConnectable*> GetConnectedDevices();
     double GetAddress();
 };

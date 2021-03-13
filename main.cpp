@@ -13,19 +13,19 @@ int main() {
     file.close();
 
     int currentTime = 0;
-    int simulationTime = 3000; // microseconds
+    int simulationTime = 1000; // microseconds
 
     // create networking entities
 
-    Device* device1 = new Device(2, 600); // microseconds
+    Device* device1 = new Device(2, 50); // microseconds
     Device* device2 = new Device(3, -1); // no dispatches
-    Device* device3 = new Device(4, 1112); // microseconds
+   // Device* device3 = new Device(4, 1112); // microseconds
 
 
-    std::vector<Device*> devices = {device1, device2, device3};
+    std::vector<Device*> devices = {device1, device2};//, device3};
 
     Router* router1 = new Router("router1", 2, 1024);
-    Router* router2 = new Router("router2", 3, 1024);
+    Router* router2 = new Router("router2", 2, 1024);
     Router* router3 = new Router("router3", 2, 1024);
 
     std::vector<Router*> routers = {router1, router2, router3};
@@ -37,9 +37,9 @@ int main() {
         router->AddCommutationTable({{3, 1}});
     }
 
-    routers[0]->AddSchedule({{0, 1200}});
-    routers[1]->AddSchedule({{1200, 1800}});
-    routers[2]->AddSchedule({{1800, 2400}});
+    routers[0]->AddSchedule(0, {{0, 100}});
+    routers[1]->AddSchedule(0, {{100, 200}});
+    routers[2]->AddSchedule(0, {{100, 300}});
 
     // build network
     routers[0]->ConnectTo(device1, 0);
@@ -48,8 +48,8 @@ int main() {
     routers[2]->ConnectTo(device2, 1);
     device2->ConnectTo(routers[2], 1);
 
-    device3->ConnectTo(routers[1], 2);
-    routers[1]->ConnectTo(device2, 0);
+   // device3->ConnectTo(routers[1], 2);
+   // routers[1]->ConnectTo(device2, 0);
 
     routers[0]->ConnectTo(routers[1], 1);
     routers[1]->ConnectTo(routers[0], 0);
@@ -58,13 +58,13 @@ int main() {
     routers[2]->ConnectTo(routers[1], 0);
 
     device1->SetDestination(3);
-    device3->SetDestination(3);
+    //device3->SetDestination(3);
 
-    double packageSize = 64;
+    double packageSize = 6;
     double systemData = 5;
     double payloadSize = packageSize - systemData;
     device1->SetPayloadSize(payloadSize); // 64 bytes
-    device3->SetPayloadSize(payloadSize); // 64 bytes
+   // device3->SetPayloadSize(payloadSize); // 64 bytes
 
     while (currentTime < simulationTime)
     {
