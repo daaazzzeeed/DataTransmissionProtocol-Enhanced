@@ -48,30 +48,28 @@ void Router::Run()
          * Possible conversions:
          * ---------------------------------------------------
          * 1.
-         *                          Idle
-         *                        /
-         *       Idle -> Receiving -> Waiting -> Idle
-         *
+         *       Idle -> Receiving -> Responding -> Idle
          *
          * In this case port is receiving data and then
          * optionally redirects data to another port of
          * the router for a further handling.
          * ---------------------------------------------------
          * 2.
+         *       Idle -> Receiving -> Idle
+         *
+         * In this case port is receiving data and then
+         * redirects data to another port of
+         * the router for a further handling.
+         * ---------------------------------------------------
+         * 3.
          *          Idle -> Sending -> Idle
          *
          * In this case port is receiving data from another
-         * port and then optionally sends data to a connected
+         * port and then sends data to a connected
          * device for a further handling.
          * ---------------------------------------------------
          *
-         *
          */
-        //std::cout << "State: " << currentState << std::endl;
-       /* for (int k = 0; k < portsCount; k++)
-        {
-            std::cout << "Raw data [" << k << "] :" << vector_to_string(portsRawData[k]) << std::endl;
-        }*/
 
         std::string binary = "";
 
@@ -88,7 +86,6 @@ void Router::Run()
                 {
                     if (!PackageJustDelivered[i])
                     {
-                        //std::cout << portsRawData[i].size() << std::endl;
                         int data = portsRawData[i][0];
                         auto first = portsRawData[i].begin() + 1;
                         auto last = portsRawData[i].end();
@@ -105,9 +102,6 @@ void Router::Run()
                     // free current port
                     portStates[i] = States::Idle;
 
-                    // free connected port
-                    //portStates[Connections[i]] = States::Idle;
-
                     std::cout << "---Package was sent from a port" << i << "---" << std::endl;
 
                 }
@@ -117,8 +111,6 @@ void Router::Run()
                 // port has 1 byte of raw data in it
                 if (portsRawData[i].size() % 8 == 0 && portsRawData[i].size() > 0)
                 {
-                    // std::cout << vector_to_string(portsRawData[i]) << std::endl;
-
                     // convert 8 bits to 1 byte
                     std::string bits = "";
 
@@ -127,8 +119,6 @@ void Router::Run()
                     {
                         bits += std::to_string(portsRawData[i][j]);
                     }
-
-                   // std::cout << "bits : " << bits << std::endl;
 
                     // clear raw data or take first byte
                     if (portsRawData[i].size() > 8)
@@ -144,11 +134,8 @@ void Router::Run()
 
                     // check that byte if it's end char
                     // if so then package is completely received
-                    //  std::cout << "--------------" << portsProcessedData[i].back() << "--------------" << std::endl;
-
                     if (portsProcessedData[i].back() == MESSAGE_END)
                     {
-                        std::cout << "GOT EOP" << vector_to_string(portsProcessedData[i]) << std::endl;
                         bool isRequest = false;
 
                         for (auto byte : portsProcessedData[i])
@@ -174,15 +161,9 @@ void Router::Run()
                             // fetch target port from a commutation table
                             int targetPort = commutationTable[portsProcessedData[i][2]];
 
-                            // add new connection
-                           // Connections[targetPort] = i;
-
-                            // std::cout << "Target port is " << targetPort  << std::endl;
-
                             // check if target port is free (state == Idle)
                             if (portStates[targetPort] == States::Idle) {
                                 // target port is free
-                                //portStates[i] = States::Waiting;
                                 portStates[i] = States::Idle;
                                 portStates[targetPort] = States::Sending;
                                 PackageJustDelivered[targetPort] = true;
@@ -220,39 +201,38 @@ void Router::Run()
                         }
                         else
                         {
-                            std::cout << "Request got" << std::endl;
-                            // find out if there is any schedule slot
-                            // traverse schedule
-                            for (auto item : schedule[i])
-                            {
-                                // check if selected time slot is ok
-                                std::cout << item[0] << ", " << currentTime << ", " << item[1] << std::endl;
-                                if (item[0] < currentTime && currentTime < item[1] )
-                                {
-                                    std::cout << item[0] << ", " << currentTime << ", " << item[1] << std::endl;
-                                    responseResult = RESPONSE_OK;
-                                    // escape from the loop
-                                    break;
-                                }
-                            }
-
-                            if (responseResult == RESPONSE_OK)
-                            {
-                                std::cout << "approved"<< std::endl;
-                            }
-                            else
-                            {
-                                std::cout << "denied"<< std::endl;
-                            }
-                            portStates[i] = States::Responding;
-
-                            // clear processed data
-                            portsProcessedData[i].clear();
+                            // Request
+                            portStates[i] = States::Waiting;
                         }
                     }
 
                 }
+                break;
+            case Waiting:
+                // find out if there is any schedule slot
+                // traverse schedule
+                for (auto item : schedule[i])
+                {
+                    // check if selected time slot is ok
+                    if (item[0] < currentTime && currentTime < item[1] )
+                    {
+                        responseResult = RESPONSE_OK;
+                        // escape from the loop
+                        break;
+                    }
+                }
 
+                if (responseResult == RESPONSE_OK)
+                {
+                    portStates[i] = States::Responding;
+                    // clear processed data
+                    portsProcessedData[i].clear();
+                    std::cout << "approved"<< std::endl;
+                }
+                else
+                {
+                    std::cout << "denied"<< std::endl;
+                }
                 break;
             case States::Responding:
                 if (responseRaw[i].empty())
@@ -265,18 +245,6 @@ void Router::Run()
                     portStates[i] = States::Idle;
                     responseRaw[i].clear();
                 }
-                break;
-            case States::Waiting:
-                for (int pos = portsRawData[i].size()-1; pos > portsRawData[i].size()-1-8; pos--)
-                {
-                    binary += std::to_string(portsRawData[i][pos]);
-                }
-
-                if (binaryStringToInt(binary) == MESSAGE_END)
-                {
-                    std::cout << "---Package was received but can't be processed---\n---Port is busy---\n---Package will be declined---" << std::endl;
-                }
-
                 break;
             default:
                 std::cout << "---State Error---\n---Wrong state was set!---" << std::endl;
@@ -325,12 +293,10 @@ double Router::GetAddress()
 bool Router::sendResponse(int port)
 {
     // device has data to send
-    std::cout << "size : " << responsePrepared[port].size() << std::endl;
     if (responsePrepared[port].size() > 0)
     {
         // fetch data
         int data = responsePrepared[port][0];
-        //std::cout << data << std::endl;
         // crop vector
         auto first = responsePrepared[port].begin() + 1;
         auto last = responsePrepared[port].end();
@@ -356,7 +322,7 @@ void Router::generateResponseForPort(int port)
     responseRaw[port].clear();
 
     // add header data and payload size
-    std::cout << "responseResult: " << responseResult << std::endl;
+
     responseRaw[port] = {
             MESSAGE_START,
             responseResult,

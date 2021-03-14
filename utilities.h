@@ -7,6 +7,26 @@
 #include <string>
 #include <vector>
 #include "math.h"
+#include <map>
+
+template <typename T1, typename T2>
+static std::string map_to_string(std::map<T1, T2> map)
+{
+    std::string out = "{ ";
+
+    if (!map.empty())
+    {
+        for (auto it = map.begin(); it != map.end(); it++)
+        {
+            out += it->first + " : " + std::to_string(it->second) + ", ";
+        }
+    }
+
+    out = out.substr(0, out.size()-2);
+    out += " }";
+
+    return out;
+}
 
 template <typename T>
 static std::string vector_to_string(std::vector<T> v)
@@ -46,6 +66,20 @@ static int binaryStringToInt(std::string binaryString)
 
 static void analyzeStats()
 {
+    std::map<std::string, int> stats =
+        {
+            {"created", 0},
+            {"approved", 0},
+            {"denied", 0},
+            {"received", 0},
+            {"total", 0}
+        };
+
+    std::string TYPE_CREATED = " created ";
+    std::string TYPE_RECEIVED = " received ";
+    std::string TYPE_APPROVED = " approved ";
+    std::string TYPE_DENIED = " denied ";
+
     std::ifstream file;
     file.open("stats.txt");
 
@@ -60,20 +94,47 @@ static void analyzeStats()
     for (int i = 0; i < lines.size(); i++)
     {
         double time1 = std::stod(lines[i].substr(0, lines[i].find(':')));
-        std::string data1 = lines[i].substr(lines[i].find('{'), lines[i].size());
 
-        for (int j = i+1; j < lines.size(); j++)
+        std::string type = lines[i].substr(lines[i].find(' '), lines[i].find('{')-lines[i].find(' '));
+
+        if (type == TYPE_CREATED)
         {
-            double time2 = std::stod(lines[j].substr(0, lines[j].find(':')));
-            std::string data2 = lines[j].substr(lines[j].find('{'), lines[j].size());
+            stats["created"]++;
+            std::string data1 = lines[i].substr(lines[i].find('{'), lines[i].find('}')-lines[i].find('{') + 1);
 
-            if (data1 == data2)
+            for (int j = 0; j < lines.size(); j++)
             {
-                double delay = abs(time1 - time2);
-                std::cout << "delay = " << delay << " [Data] : " << data1 << std::endl;
+                std::string type2 = lines[j].substr(lines[j].find(' '), lines[j].find('{')-lines[j].find(' '));
+                std::string data2 = lines[j].substr(lines[j].find('{'), lines[j].find('}')-lines[j].find('{')+1);
+
+                if (data1 == data2 && type2 == TYPE_RECEIVED)
+                {
+                    double time2 = std::stod(lines[j].substr(0, lines[j].find(':')));
+                    double delay = abs(time1 - time2);
+                    std::cout << "delay = " << delay << " [Data] : " << data1 << std::endl;
+                }
             }
         }
 
+        if (type == TYPE_APPROVED)
+        {
+            stats["approved"]++;
+        }
+
+        if (type == TYPE_DENIED)
+        {
+            stats["denied"]++;
+        }
+
+        if (type == TYPE_RECEIVED)
+        {
+            stats["received"]++;
+        }
+
+        stats["total"]++;
     }
 
+    std::cout << map_to_string(stats) << std::endl;
+    double dataLoss = (1 - (double)stats["received"] / (double)stats["total"]) * 100;
+    std::cout << "data loss: " << dataLoss << "%" << std::endl;
 }

@@ -13,7 +13,7 @@ int main() {
     file.close();
 
     int currentTime = 0;
-    int simulationTime = 1000; // microseconds
+    int simulationTime = 1200; // microseconds
 
     // create networking entities
 
@@ -37,7 +37,7 @@ int main() {
         router->AddCommutationTable({{3, 1}});
     }
 
-    routers[0]->AddSchedule(0, {{0, 100}});
+    routers[0]->AddSchedule(0, {{0, 100}, {900, 1000}});
     routers[1]->AddSchedule(0, {{100, 200}});
     routers[2]->AddSchedule(0, {{100, 300}});
 
@@ -66,9 +66,10 @@ int main() {
     device1->SetPayloadSize(payloadSize); // 64 bytes
    // device3->SetPayloadSize(payloadSize); // 64 bytes
 
+    //std::cout.setstate(std::ios_base::failbit);
     while (currentTime < simulationTime)
     {
-        std::cout << "TIME: " << currentTime << "---------------------------" << std::endl;
+        std::cout << "---------------------------TIME: " << currentTime << "---------------------------" << std::endl;
 
         for (auto device : devices)
         {
@@ -82,6 +83,8 @@ int main() {
 
         currentTime++;
     }
+
+    std::cout.clear();
 
     analyzeStats();
 
