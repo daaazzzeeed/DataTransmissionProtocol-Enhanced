@@ -66,6 +66,8 @@ static int binaryStringToInt(std::string binaryString)
 
 static void analyzeStats()
 {
+    // TODO : replace current logic with a dictionary based one
+
     std::map<std::string, int> stats =
         {
             {"created", 0},
@@ -137,4 +139,32 @@ static void analyzeStats()
     std::cout << map_to_string(stats) << std::endl;
     double dataLoss = (1 - (double)stats["received"] / (double)stats["total"]) * 100;
     std::cout << "data loss: " << dataLoss << "%" << std::endl;
+}
+
+auto calculateSchedules(std::map<int, int> routersInfo, std::map<int, std::map<int, int>> routeSpecs, std::map<int, std::vector<std::pair<int, int>>> routes)
+{
+    // routersInfo: map { routerIndex : portCount}
+    // routeSpecs: map {routeTime : map {routeID, period} }
+    // routes: map {routeID: vector {{router1, port1},..., {routerN, portM}}}
+
+    std::map<int, std::map<int, std::vector<std::vector<int>>>> result = {};
+
+    for (auto it = routersInfo.begin(); it != routersInfo.end(); it++)
+    {
+        int portCount = it->second;
+        std::map<int, std::vector<std::vector<int>>> routerData = {};
+
+        for (int i = 0; i < portCount; i++)
+        {
+            routerData[i] = {};
+        }
+
+        result[it->first] = routerData;
+    }
+
+    std::sort(routeSpecs.begin(), routeSpecs.end());
+
+    // TODO : implement main logic (delays and schedule generating)
+
+    return result;
 }
