@@ -262,7 +262,7 @@ void Device::Receive(int data, int port)
     inDataRaw.push_back(data);
 }
 
-void Device::ConnectTo(IConnectable* device, int port)
+void Device::Connect(IConnectable* device, int port)
 {
     parentRouter = device;
 }

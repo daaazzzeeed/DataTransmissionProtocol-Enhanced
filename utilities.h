@@ -4,10 +4,12 @@
 #pragma once
 
 #include <iostream>
+#include <cmath>
 #include <string>
 #include <vector>
-#include "math.h"
 #include <map>
+#include <set>
+#include "IConnectable.h"
 
 template <typename T1, typename T2>
 static std::string map_to_string(std::map<T1, T2> map)
@@ -29,9 +31,9 @@ static std::string map_to_string(std::map<T1, T2> map)
 }
 
 template <typename T>
-static std::string vector_to_string(std::vector<T> v)
+static std::string iterable_to_string(std::vector<T> v)
 {
-    std::string out = "";
+    std::string out;
 
     if (!v.empty())
     {
@@ -86,11 +88,11 @@ static void analyzeStats()
     file.open("stats.txt");
 
     std::vector<std::string> lines;
-    std::string line;
+    std::string item;
 
-    while (getline(file, line))
+    while (getline(file, item))
     {
-        lines.push_back(line);
+        lines.push_back(item);
     }
 
     for (int i = 0; i < lines.size(); i++)
@@ -104,14 +106,14 @@ static void analyzeStats()
             stats["created"]++;
             std::string data1 = lines[i].substr(lines[i].find('{'), lines[i].find('}')-lines[i].find('{') + 1);
 
-            for (int j = 0; j < lines.size(); j++)
+            for (auto & line : lines)
             {
-                std::string type2 = lines[j].substr(lines[j].find(' '), lines[j].find('{')-lines[j].find(' '));
-                std::string data2 = lines[j].substr(lines[j].find('{'), lines[j].find('}')-lines[j].find('{')+1);
+                std::string type2 = line.substr(line.find(' '), line.find('{')-line.find(' '));
+                std::string data2 = line.substr(line.find('{'), line.find('}')-line.find('{')+1);
 
                 if (data1 == data2 && type2 == TYPE_RECEIVED)
                 {
-                    double time2 = std::stod(lines[j].substr(0, lines[j].find(':')));
+                    double time2 = std::stod(line.substr(0, line.find(':')));
                     double delay = abs(time1 - time2);
                     std::cout << "delay = " << delay << " [Data] : " << data1 << std::endl;
                 }
@@ -141,17 +143,21 @@ static void analyzeStats()
     std::cout << "data loss: " << dataLoss << "%" << std::endl;
 }
 
-auto calculateSchedules(std::map<int, int> routersInfo, std::map<int, std::map<int, int>> routeSpecs, std::map<int, std::vector<std::pair<int, int>>> routes)
+auto calculateSchedules(const std::map<int, int>& routersInfo, std::map<int, std::map<int, int>> routeSpecs,
+                        const std::map<int, std::vector<std::pair<int, int>>>& routes,
+                        int simulationEndTime)
 {
     // routersInfo: map { routerIndex : portCount}
-    // routeSpecs: map {routeTime : map {routeID, period} }
+    // routeSpecs: map {period : map {routeID, routeTime} }
     // routes: map {routeID: vector {{router1, port1},..., {routerN, portM}}}
 
+    // create resulting data structure
     std::map<int, std::map<int, std::vector<std::vector<int>>>> result = {};
 
-    for (auto it = routersInfo.begin(); it != routersInfo.end(); it++)
+    // fill resulting data structure with the initial values
+    for (auto & it : routersInfo)
     {
-        int portCount = it->second;
+        int portCount = it.second;
         std::map<int, std::vector<std::vector<int>>> routerData = {};
 
         for (int i = 0; i < portCount; i++)
@@ -159,12 +165,33 @@ auto calculateSchedules(std::map<int, int> routersInfo, std::map<int, std::map<i
             routerData[i] = {};
         }
 
-        result[it->first] = routerData;
+        result[it.first] = routerData;
     }
 
+    // sort routes by transmission periods
     std::sort(routeSpecs.begin(), routeSpecs.end());
 
-    // TODO : implement main logic (delays and schedule generating)
+    std::map<int, std::set<int>> requestTimeMomentsMap;
+
+    for (auto & it : routeSpecs)
+    {
+        int step = it.first;
+        int requestTimeMoment = it.first;
+        std::set<int> requestTimeMoments;
+        while (requestTimeMoment < simulationEndTime)
+        {
+            requestTimeMoments.insert(requestTimeMoment);
+            requestTimeMoment += step;
+        }
+        requestTimeMomentsMap[it.first] = requestTimeMoments;
+    }
 
     return result;
+}
+
+static void Connect(IConnectable* A, int portA, IConnectable* B, int portB)
+{
+    // Connects entity A via portA to an entityB portB
+    A->Connect(B, portA);
+    B->Connect(A, portB);
 }

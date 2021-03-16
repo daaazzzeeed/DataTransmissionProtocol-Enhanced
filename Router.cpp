@@ -273,9 +273,8 @@ void Router::Receive(int data, int port)
     portsRawData[port].push_back(data);
 }
 
-void Router::ConnectTo(IConnectable* device, int port)
+void Router::Connect(IConnectable* device, int port)
 {
-    // FIXME: NO two-sided connection
     ConnectedDevices[port] = device;
 }
 

@@ -66,10 +66,10 @@ public:
     std::string GetName(); // returns device name
     void Run(); // main loop with an event handling
     std::vector<int> GetStatistics(); // returns vector of statistics
-    void Receive(int data, int port=0);
-    void ConnectTo(IConnectable* device, int port=0);
-    double GetAddress();
-    std::map<int, IConnectable*> GetConnectedDevices();
+    void Receive(int data, int port) override;
+    void Connect(IConnectable* device, int port) override;
+    double GetAddress() override;
+    std::map<int, IConnectable*> GetConnectedDevices() override;
     void SetDestination(double dest);
     void SetPayloadSize(double size);
 };

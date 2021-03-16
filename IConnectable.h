@@ -11,10 +11,9 @@
 class IConnectable
 {
 public:
-    // TODO: refactor ConnectTo() method
     virtual double GetAddress() = 0;
-    virtual void Receive(int data, int port=0) = 0;
-    virtual void ConnectTo(IConnectable* device, int port=0) = 0;
+    virtual void Receive(int data, int port) = 0;
+    virtual void Connect(IConnectable* device, int port) = 0;
     virtual std::map<int, IConnectable*> GetConnectedDevices() = 0;
 };
 

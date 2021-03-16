@@ -129,13 +129,13 @@ private:
 
 public:
     Router(std::string name, int portCount, int maxBufSize);
-    void Receive(int data, int port=0);
-    void ConnectTo(IConnectable* device, int port=0);
+    void Receive(int data, int port) override;
+    void Connect(IConnectable* device, int port) override;
     void Run();
     void AddCommutationTable(std::map<int, int> commutationTable);
     void AddSchedule(int port, std::vector<std::vector<int>> schedule);
-    std::map<int, IConnectable*> GetConnectedDevices();
-    double GetAddress();
+    std::map<int, IConnectable*> GetConnectedDevices() override;
+    double GetAddress() override;
 };
 
 
