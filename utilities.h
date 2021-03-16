@@ -186,6 +186,25 @@ auto calculateSchedules(const std::map<int, int>& routersInfo, std::map<int, std
         requestTimeMomentsMap[it.first] = requestTimeMoments;
     }
 
+    std::map<int, std::vector<int>> requestTimeMomentsIntersections;
+
+    for (auto it = requestTimeMomentsMap.begin(); it != requestTimeMomentsMap.end(); it++)
+    {
+        for (auto innerIt = it; innerIt != requestTimeMomentsMap.end(); innerIt++)
+        {
+            std::vector<int> intersectionElements;
+            std::set_intersection(it->second.begin(), it->second.end(),
+                                  innerIt->second.begin(), innerIt->second.end(),
+                                  intersectionElements);
+
+            if (!intersectionElements.empty())
+            {
+                requestTimeMomentsIntersections[it->first].push_back(innerIt->first);
+            }
+        }
+    }
+
+
     return result;
 }
 
