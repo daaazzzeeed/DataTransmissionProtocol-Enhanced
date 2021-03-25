@@ -90,7 +90,7 @@ void Router::Run()
                         auto first = portsRawData[i].begin() + 1;
                         auto last = portsRawData[i].end();
                         portsRawData[i] = std::vector(first, last);
-                        ConnectedDevices[i]->Receive(data);
+                        ConnectedDevices[i]->Receive(data, 0);
                     }
                     else
                     {
@@ -306,7 +306,7 @@ bool Router::sendResponse(int port)
         auto connected = GetConnectedDevices()[port];
 
         // finally send data to target port
-        connected->Receive(data);
+        connected->Receive(data, 0);
         return true;
     }
     else

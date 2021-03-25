@@ -6,6 +6,22 @@
 
 int main() {
 
+    // auto schedule parameters
+    std::map<int, int> routersInfo = {{1, 4}, {2, 4}};
+    std::map<int, std::map<int, int>> routeSpecs =
+            {
+                    {8, std::map<int, int>{{1, 816}}},
+                    {12, std::map<int, int>{{2, 816}}},
+                    {32, std::map<int, int>{{3, 1584}}}
+            };
+    std::map<int, std::vector<std::pair<int, int>>> routes =
+            {
+                    {1, {{1, 0}, {2, 0, }, {2, 1}}},
+                    {2, {{1, 2}, {2, 0, }, {2, 1}}},
+                    {3, {{1, 3}, {2, 0, }, {2, 3}}}
+            };
+
+
     // clear stats file
     std::ofstream file;
     file.open("stats.txt", std::ios::trunc);
@@ -13,7 +29,7 @@ int main() {
 
     int currentTime = 0;
     int MSec2McSec = 1000;
-    int durationInMSecs = 50;
+    double durationInMSecs = 100;
     int simulationTime = durationInMSecs*MSec2McSec; // microseconds
 
     // create networking entities
@@ -41,9 +57,8 @@ int main() {
     router2->AddCommutationTable({{5, 2}, {7, 3}});
 
     // set schedules
-    //auto schedules = calculateSchedules();
-    router1->AddSchedule(0, {{0, 100}, {900, 1000}});
-    router2->AddSchedule(0, {{100, 200}});
+    router1->AddSchedule(3, {{8024, 8030}});
+   // router2->AddSchedule(0, {{8600,8800}});
 
     // build network
     Connect(router1, 1, router2, 0);
@@ -63,8 +78,8 @@ int main() {
     double systemData = 5;
     double payloadSize = packageSize - systemData;
     device2->SetPayloadSize(payloadSize); // 64 bytes
-    device4->SetPayloadSize(payloadSize/2); // 32 bytes
-    device6->SetPayloadSize(payloadSize/2); // 32 bytes
+    device4->SetPayloadSize(((int)packageSize/2) - systemData); // 32 bytes
+    device6->SetPayloadSize(((int)packageSize/2) - systemData); // 32 bytes
 
     // add devices to a vector for a group actions
     auto devices = {device2, device3, device4, device5, device6, device7};
@@ -90,6 +105,8 @@ int main() {
     std::cout.clear();
 
     analyzeStats();
+
+    auto schedule = calculateSchedules(routersInfo, routeSpecs, routes, simulationTime);
 
     return 0;
 }
