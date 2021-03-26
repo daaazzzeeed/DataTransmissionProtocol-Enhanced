@@ -6,6 +6,8 @@
 
 int main() {
 
+    freopen("out.txt","w",stdout);
+
     // auto schedule parameters
     std::map<int, int> routersInfo = {{1, 4}, {2, 4}};
     std::map<int, std::map<int, int>> routeSpecs =
@@ -16,9 +18,9 @@ int main() {
             };
     std::map<int, std::vector<std::pair<int, int>>> routes =
             {
-                    {1, {{1, 0}, {2, 0, }, {2, 1}}},
-                    {2, {{1, 2}, {2, 0, }, {2, 1}}},
-                    {3, {{1, 3}, {2, 0, }, {2, 3}}}
+                    {1, {{1, 3}, {2, 0, }, {2, 3}}},
+                    {2, {{1, 2}, {2, 0, }, {2, 2}}},
+                    {3, {{1, 0}, {2, 0, }, {2, 1}}}
             };
 
 
@@ -49,16 +51,33 @@ int main() {
     // all packages with dest addr 3 will be forwarded to a port 1
     for (auto router : routers)
     {
-        router->AddCommutationTable({{3, 1}});
+        router->AddCommutationTable(3, 1);
     }
 
     // set commutation tables
-    router1->AddCommutationTable({{4, 2}, {6, 3}});
-    router2->AddCommutationTable({{5, 2}, {7, 3}});
+    routers[0]->AddCommutationTable(5, 1);
+    routers[0]->AddCommutationTable(7, 1);
+    routers[1]->AddCommutationTable(5, 2);
+    routers[1]->AddCommutationTable(7, 3);
+
+    // create schedules
+    auto schedule = calculateSchedules(routersInfo, routeSpecs, routes, durationInMSecs);
+
+    // show schedules
+    showSchedule(schedule);
 
     // set schedules
-    router1->AddSchedule(3, {{8024, 8030}});
-   // router2->AddSchedule(0, {{8600,8800}});
+
+    for (auto routerItem : schedule)
+    {
+        for (auto portItem : routerItem.second)
+        {
+            routers[routerItem.first-1]->AddSchedule(portItem.first, portItem.second);
+        }
+    }
+
+    //router1->AddSchedule(3, {{8024, 8030}});
+    // router2->AddSchedule(0, {{8600,8800}});
 
     // build network
     Connect(router1, 1, router2, 0);
@@ -67,6 +86,7 @@ int main() {
     Connect(router1, 3, device6, 0);
     Connect(router2, 2, device5, 0);
     Connect(router2, 3, device7, 0);
+    Connect(router2, 1, device3, 0);
 
     // set destinations for source devices
     device2->SetDestination(3);
@@ -105,8 +125,6 @@ int main() {
     std::cout.clear();
 
     analyzeStats();
-
-    auto schedule = calculateSchedules(routersInfo, routeSpecs, routes, simulationTime);
 
     return 0;
 }

@@ -256,6 +256,7 @@ static auto getRoutePrioritiesMap(const std::map<int, std::map<int, int>>& route
         priority--;
     }
 
+    std::cout << map_to_string(routePrioritiesMap) << std::endl;
     return routePrioritiesMap;
 }
 
@@ -333,23 +334,43 @@ static auto calculateSchedules(const std::map<int, int>& routersInfo,
 
     std::cout << map_to_string(maxRouteDelays) << std::endl;
 
+    std::cout << allRequestTimeMoments.size() << std::endl;
     for (auto requestMoment : allRequestTimeMoments)
     {
         auto requestingRoutesForCurrentTime = mapRequestToTime[requestMoment];
-        for (auto requestingRoute : requestingRoutesForCurrentTime)
+        std::cout << vector_to_string(requestingRoutesForCurrentTime) << std::endl;
+        for (auto priority : routePrioritiesMap)
         {
+            // find top priority route
+            // mark it not found
+            int requestingRoute = -1;
+
+            // if routes for current time include route with the top priority
+            if (std::find(requestingRoutesForCurrentTime.begin(),
+                          requestingRoutesForCurrentTime.end(),
+                          priority.second) != requestingRoutesForCurrentTime.end())
+            {
+                // take this route
+                requestingRoute = priority.second;
+            }
+            else
+            {
+                // continue search
+                continue;
+            }
+
             int maxDelay = maxRouteDelays[requestingRoute];
             int delta = maxDelay - routeSpecs.at(requestingRoute).begin()->second;
-            std::cout << "delta : " << delta << std::endl;
+            //std::cout << "delta : " << delta << std::endl;
             int requestSendTime = 24; // microseconds
             int ms2mcs = 1000;
-            int permittedIntervalStart = requestMoment * ms2mcs + requestSendTime + delta;
+            int permittedIntervalStart = requestMoment*ms2mcs  + requestSendTime + delta;
             int permittedIntervalEnd = permittedIntervalStart + 100;
             int routeID = routeSpecs.at(requestingRoute).begin()->first;
             auto routePart = routes.at(routeID)[0];
             int routerIndex = routePart.first;
             int portIndex = routePart.second;
-            std::cout << "router : " << routerIndex << " port : " << portIndex << std::endl;
+            //std::cout << "router : " << routerIndex << " port : " << portIndex << std::endl;
 
             std::vector<int> scheduleItem = {permittedIntervalStart, permittedIntervalEnd};
             result[routerIndex][portIndex].push_back(scheduleItem);
@@ -359,6 +380,27 @@ static auto calculateSchedules(const std::map<int, int>& routersInfo,
     return result;
 }
 
+static void showSchedule(std::map<int, std::map<int, std::vector<std::vector<int>>>> schedule)
+{
+    for (auto routerItem : schedule)
+    {
+        std::cout << "router" << routerItem.first << " : {";
+
+        for (auto portItem : routerItem.second)
+        {
+            std::cout << " { port" << portItem.first << " : { ";
+
+            for (auto scheduleItem : portItem.second)
+            {
+                std::cout << "{ " << scheduleItem[0] << "-" << scheduleItem[1] << " }, ";
+            }
+
+            std::cout << " } " << std::endl;
+        }
+
+        std::cout << " } \n" << std::endl;
+    }
+}
 
 static void Connect(IConnectable* A, int portA, IConnectable* B, int portB)
 {

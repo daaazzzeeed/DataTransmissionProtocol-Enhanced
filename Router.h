@@ -35,7 +35,7 @@ private:
     const double RESPONSE_BAD = 0xFC; // indicates denied request
     std::map<int, IConnectable*> ConnectedDevices;
     std::map<int, bool> PackageJustDelivered;
-    double responseResult;
+    std::map<int, double> responseResultsMap;
     bool sendResponse(int port);
     void generateResponseForPort(int port);
 
@@ -132,7 +132,7 @@ public:
     void Receive(int data, int port) override;
     void Connect(IConnectable* device, int port) override;
     void Run();
-    void AddCommutationTable(std::map<int, int> commutationTable);
+    void AddCommutationTable(int addressDest, int portRedirectTo);
     void AddSchedule(int port, std::vector<std::vector<int>> schedule);
     std::map<int, IConnectable*> GetConnectedDevices() override;
     double GetAddress() override;

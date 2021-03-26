@@ -11,10 +11,14 @@ Router::Router(std::string name, int portCount, int maxBufSize)
     portsCount = portCount;
     maximumBufferSize = maxBufSize;
     ConnectedDevices = {};
+    commutationTable = {};
    // Connections = {};
     currentTime = 0;
     deltaTime = 1;
-    responseResult = RESPONSE_BAD;
+    for (int i = 0; i < portCount; i++)
+    {
+        responseResultsMap[i] = RESPONSE_BAD;
+    }
 
     // init ports data and buffers
     for (int i = 0; i < portsCount; i++)
@@ -32,6 +36,7 @@ Router::Router(std::string name, int portCount, int maxBufSize)
 
 void Router::Run()
 {
+
     std::cout << "\n---------------" << name << "---------------" << std::endl;
 
     for (int i = 0; i < portsCount; i++)
@@ -84,13 +89,18 @@ void Router::Run()
             case States::Sending:
                 if (portsRawData[i].size() > 0)
                 {
+                    std::cout << "AAAA" << std::endl;
                     if (!PackageJustDelivered[i])
                     {
+                        std::cout << "AAAA" << std::endl;
                         int data = portsRawData[i][0];
                         auto first = portsRawData[i].begin() + 1;
                         auto last = portsRawData[i].end();
                         portsRawData[i] = std::vector(first, last);
+                        //std::cout << ConnectedDevices[2]->GetAddress() << std::endl;
+                        //std::cout << ConnectedDevices[i]->GetAddress() << std::endl;
                         ConnectedDevices[i]->Receive(data, 0);
+                        std::cout << "AAAA" << std::endl;
                     }
                     else
                     {
@@ -107,7 +117,7 @@ void Router::Run()
                 }
                 break;
             case States::Receiving:
-                responseResult = RESPONSE_BAD;
+                //responseResult = RESPONSE_BAD;
                 // port has 1 byte of raw data in it
                 if (portsRawData[i].size() % 8 == 0 && portsRawData[i].size() > 0)
                 {
@@ -159,6 +169,9 @@ void Router::Run()
                             // and target port in the schedule
 
                             // fetch target port from a commutation table
+                            std::cout << "SUKA" << std::endl;
+                            std::cout << map_to_string(commutationTable) << std::endl;
+
                             int targetPort = commutationTable[portsProcessedData[i][2]];
 
                             // check if target port is free (state == Idle)
@@ -196,7 +209,8 @@ void Router::Run()
 
                                 std::cout << "---Schedule Error!" << std::endl;
                                 std::cout << "Package will be declined!" << std::endl;
-                                std::cout << "Target port is busy---" << std::endl;
+                                std::cout << "Target port " << targetPort << "is busy---" << std::endl;
+
                             }
                         }
                         else
@@ -216,13 +230,18 @@ void Router::Run()
                     // check if selected time slot is ok
                     if (item[0] < currentTime && currentTime < item[1] )
                     {
-                        responseResult = RESPONSE_OK;
+                        std::cout << vector_to_string(item) << std::endl;
+                        responseResultsMap[i] = RESPONSE_OK;
                         // escape from the loop
                         break;
                     }
+                    else
+                    {
+                        responseResultsMap[i] = RESPONSE_BAD;
+                    }
                 }
 
-                if (responseResult == RESPONSE_OK)
+                if (responseResultsMap[i] == RESPONSE_OK)
                 {
                     portStates[i] = States::Responding;
                     // clear processed data
@@ -257,9 +276,9 @@ void Router::Run()
 }
 
 
-void Router::AddCommutationTable(std::map<int, int> commutationTable)
+void Router::AddCommutationTable(int addressDest, int portRedirectTo)
 {
-    this->commutationTable = commutationTable;
+    this->commutationTable.insert({addressDest, portRedirectTo});
 }
 
 void Router::AddSchedule(int port, std::vector<std::vector<int>> schedule)
@@ -324,7 +343,7 @@ void Router::generateResponseForPort(int port)
 
     responseRaw[port] = {
             MESSAGE_START,
-            responseResult,
+            responseResultsMap[port],
             MESSAGE_END
     };
 

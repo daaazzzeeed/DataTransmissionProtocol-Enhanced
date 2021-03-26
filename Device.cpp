@@ -28,7 +28,7 @@ void Device::Run() {
 
     int response = 0;
 
-    std::cout << "Device, state: " << state << std::endl;
+    std::cout << "Device at " << address << ", state: " << state << std::endl;
 
     switch (state)
     {
@@ -187,7 +187,7 @@ void Device::GenerateData()
     };
 
     // define max and min values in payload
-    int max = 253;
+    int max = 251;
     int min = 2;
     int range = max - min;
 
