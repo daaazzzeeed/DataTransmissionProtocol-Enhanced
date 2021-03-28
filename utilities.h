@@ -84,17 +84,17 @@ static int binaryStringToInt(std::string binaryString)
     return result;
 }
 
-static void analyzeStats()
+static std::map<std::string, int> analyzeStats()
 {
-    // TODO : replace current logic with a dictionary based one
+    std::map<std::string, int> resultingDelays;
 
     std::map<std::string, int> stats =
         {
             {"created", 0},
             {"approved", 0},
             {"denied", 0},
-            {"received", 0},
-            {"total", 0}
+            {"received", 0} //,
+          //  {"total", 0}
         };
 
     std::string TYPE_CREATED = " created ";
@@ -134,6 +134,7 @@ static void analyzeStats()
                     double time2 = std::stod(line.substr(0, line.find(':')));
                     double delay = abs(time1 - time2);
                     std::cout << "delay = " << delay << " [Data] : " << data1 << std::endl;
+                    resultingDelays[data1] = delay;
                 }
             }
         }
@@ -153,12 +154,15 @@ static void analyzeStats()
             stats["received"]++;
         }
 
-        stats["total"]++;
+       // stats["total"]++;
+
     }
 
     std::cout << map_to_string(stats) << std::endl;
-    double dataLoss = (1 - (double)stats["received"] / (double)stats["total"]) * 100;
+    double dataLoss = (1 - (double)stats["received"] / (double)stats["created"]) * 100;
     std::cout << "data loss: " << dataLoss << "%" << std::endl;
+
+    return resultingDelays;
 }
 
 static auto createEmptySchedule(const std::map<int, int>& routersInfo)
@@ -407,4 +411,21 @@ static void Connect(IConnectable* A, int portA, IConnectable* B, int portB)
     // Connects entity A via portA to an entityB portB
     A->Connect(B, portA);
     B->Connect(A, portB);
+}
+
+static void redirectOutputToFile(bool activate, const char* filename)
+{
+    if (activate)
+    {
+        freopen(filename,"w",stdout);
+    }
+}
+
+static std::pair<int, int> getRouteDataFromMessage(std::string message)
+{
+    message = message.substr(message.find(", ")+2, message.size()-message.find(", ")+2);
+    int senderAddress = std::stoi(message.substr(0, message.find(", ")));
+    message = message.substr(message.find(", ")+2, message.size()-message.find(", ")+2);
+    int receiverAddress = std::stoi(message.substr(0, message.find(", ")));
+    return std::pair<int, int>(senderAddress, receiverAddress);
 }

@@ -6,7 +6,7 @@
 
 int main() {
 
-    freopen("out.txt","w",stdout);
+    redirectOutputToFile(false, "out.txt");
 
     // auto schedule parameters
     std::map<int, int> routersInfo = {{1, 4}, {2, 4}};
@@ -124,7 +124,21 @@ int main() {
 
     std::cout.clear();
 
-    analyzeStats();
+    auto delays = analyzeStats();
+
+    std::map<std::string, std::vector<int>> delaysForDataMap;
+
+    for (auto &item : delays)
+    {
+        auto routeData = getRouteDataFromMessage(item.first);
+        auto routeDataBaked = std::to_string(routeData.first) + "-" + std::to_string(routeData.second);
+        delaysForDataMap[routeDataBaked].push_back(item.second);
+    }
+
+    for (auto &item : delaysForDataMap)
+    {
+        std::cout << item.first << " : " << vector_to_string(item.second) << std::endl;
+    }
 
     return 0;
 }
