@@ -154,6 +154,7 @@ static std::map<std::string, int> analyzeStats()
             stats["received"]++;
         }
 
+              file.close();
        // stats["total"]++;
 
     }
@@ -275,47 +276,16 @@ static auto getMaxRouteDelays(const std::set<int>& allRequestTimeMoments,
     // fetch maximum delay for each route
     std::map<int, int> maxRouteDelays;
 
+        int delay = 0;
 
-    for (auto timeMoment : allRequestTimeMoments)
-    {
-        // get all requests for a current time
-        auto requestsForCurrentTimeMoment = requestsByTime.at(timeMoment);
-
-        // cumulative delay
-        int totalDelay = 0;
-
-        // iterate through priorities from highest to lowest
-
-        for (auto &priority : routePrioritiesMap)
+        for (auto priority : routePrioritiesMap)
         {
-            // if there is a request with a specific priority for a current time moment
-            if (std::find(requestsForCurrentTimeMoment.begin(),
-                          requestsForCurrentTimeMoment.end(),
-                          priority.second) != requestsForCurrentTimeMoment.end())
-            {
-                // fetch route's own delay
-                int ownDelay = routeSpecs.at(priority.second).begin()->second;
-
-                // accumulate own delays to form total delay
-                totalDelay += ownDelay;
-
-                // if max delays map contains key (route period)
-                if (maxRouteDelays.find(priority.second) != maxRouteDelays.end())
-                {
-                    if (totalDelay > maxRouteDelays[priority.second])
-                    {
-                        maxRouteDelays[priority.second] = totalDelay;
-                    }
-                }
-                else
-                {
-                    maxRouteDelays[priority.second] = totalDelay;
-                }
-            }
+            maxRouteDelays[priority.second] = delay + routeSpecs.at(priority.second).begin()->second;
+            delay += routeSpecs.at(priority.second).begin()->second;
         }
-    }
 
-    return maxRouteDelays;
+        return maxRouteDelays;
+
 }
 
 static auto calculateSchedules(const std::map<int, int>& routersInfo,
@@ -337,6 +307,7 @@ static auto calculateSchedules(const std::map<int, int>& routersInfo,
     auto maxRouteDelays = getMaxRouteDelays(allRequestTimeMoments, mapRequestToTime, routePrioritiesMap, routeSpecs);
 
     std::cout << map_to_string(maxRouteDelays) << std::endl;
+        //exit(0);
 
     std::cout << allRequestTimeMoments.size() << std::endl;
     for (auto requestMoment : allRequestTimeMoments)

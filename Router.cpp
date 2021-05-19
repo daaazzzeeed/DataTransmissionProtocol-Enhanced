@@ -10,6 +10,7 @@ Router::Router(std::string name, int portCount, int maxBufSize)
     this->name = name;
     portsCount = portCount;
     maximumBufferSize = maxBufSize;
+		busy = false;
     ConnectedDevices = {};
     commutationTable = {};
    // Connections = {};
@@ -34,7 +35,7 @@ Router::Router(std::string name, int portCount, int maxBufSize)
     }
 }
 
-void Router::Run()
+void Router::Run(int mode)
 {
 
     std::cout << "\n---------------" << name << "---------------" << std::endl;
@@ -89,10 +90,8 @@ void Router::Run()
             case States::Sending:
                 if (portsRawData[i].size() > 0)
                 {
-                    std::cout << "AAAA" << std::endl;
                     if (!PackageJustDelivered[i])
                     {
-                        std::cout << "AAAA" << std::endl;
                         int data = portsRawData[i][0];
                         auto first = portsRawData[i].begin() + 1;
                         auto last = portsRawData[i].end();
@@ -100,7 +99,6 @@ void Router::Run()
                         //std::cout << ConnectedDevices[2]->GetAddress() << std::endl;
                         //std::cout << ConnectedDevices[i]->GetAddress() << std::endl;
                         ConnectedDevices[i]->Receive(data, 0);
-                        std::cout << "AAAA" << std::endl;
                     }
                     else
                     {
@@ -111,6 +109,11 @@ void Router::Run()
                 {
                     // free current port
                     portStates[i] = States::Idle;
+
+										if (busy)
+										{
+											busy = false;
+										}
 
                     std::cout << "---Package was sent from a port" << i << "---" << std::endl;
 
@@ -223,35 +226,62 @@ void Router::Run()
                 }
                 break;
             case Waiting:
-                // find out if there is any schedule slot
-                // traverse schedule
-                for (auto item : schedule[i])
-                {
-                    // check if selected time slot is ok
-                    if (item[0] < currentTime && currentTime < item[1] )
-                    {
-                        std::cout << vector_to_string(item) << std::endl;
-                        responseResultsMap[i] = RESPONSE_OK;
-                        // escape from the loop
-                        break;
-                    }
-                    else
-                    {
-                        responseResultsMap[i] = RESPONSE_BAD;
-                    }
-                }
+								if (mode == scheduled_mode)
+								{
+										// find out if there is any schedule slot
+									// traverse schedule
+									for (auto item : schedule[i])
+									{
+											// check if selected time slot is ok
+											if (item[0] < currentTime && currentTime < item[1] )
+											{
+													std::cout << vector_to_string(item) << std::endl;
+													responseResultsMap[i] = RESPONSE_OK;
+													// escape from the loop
+													break;
+											}
+											else
+											{
+													responseResultsMap[i] = RESPONSE_BAD;
+											}
+									}
 
-                if (responseResultsMap[i] == RESPONSE_OK)
-                {
-                    portStates[i] = States::Responding;
-                    // clear processed data
-                    portsProcessedData[i].clear();
-                    std::cout << "approved"<< std::endl;
-                }
-                else
-                {
-                    std::cout << "denied"<< std::endl;
-                }
+									if (responseResultsMap[i] == RESPONSE_OK)
+									{
+											portStates[i] = States::Responding;
+											// clear processed data
+											portsProcessedData[i].clear();
+											std::cout << "approved"<< std::endl;
+									}
+									else
+									{
+											std::cout << "denied"<< std::endl;
+									}
+								}
+								
+								if (mode == async_mode)
+								{
+									std::cout << busy << std::endl;
+									if (!busy)
+									{
+										// always approve exchanges in async mode 
+										responseResultsMap[i] = RESPONSE_OK;
+										portStates[i] = States::Responding;
+										busy = true;
+										// clear processed data
+										portsProcessedData[i].clear();
+										std::cout << "approved"<< std::endl;
+									}
+									else
+									{
+											responseResultsMap[i] = RESPONSE_BAD;
+											portStates[i] = States::Responding;
+											// clear processed data
+											portsProcessedData[i].clear();
+											std::cout << "denied"<< std::endl;
+									}
+								}
+                
                 break;
             case States::Responding:
                 if (responseRaw[i].empty())

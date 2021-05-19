@@ -25,6 +25,9 @@ private:
     double address;
     int portsCount; // number of ports
     int maximumBufferSize; // maximum buffer size in bytes
+		const int async_mode = 1; // indicates router's async mode
+		const int scheduled_mode = 0; // indicates router's scheduled mode
+		bool busy;
     const double dataAtOneMicrosecond = 0.125; // bytes
     double currentTime; // current time to work with the schedule
     double deltaTime;
@@ -131,7 +134,7 @@ public:
     Router(std::string name, int portCount, int maxBufSize);
     void Receive(int data, int port) override;
     void Connect(IConnectable* device, int port) override;
-    void Run();
+    void Run(int mode=0);
     void AddCommutationTable(int addressDest, int portRedirectTo);
     void AddSchedule(int port, std::vector<std::vector<int>> schedule);
     std::map<int, IConnectable*> GetConnectedDevices() override;

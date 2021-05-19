@@ -12,9 +12,9 @@ int main() {
     std::map<int, int> routersInfo = {{1, 4}, {2, 4}};
     std::map<int, std::map<int, int>> routeSpecs =
             {
-                    {8, std::map<int, int>{{1, 816}}},
-                    {12, std::map<int, int>{{2, 816}}},
-                    {32, std::map<int, int>{{3, 1584}}}
+                    {15, std::map<int, int>{{1, 816}}},
+                    {30, std::map<int, int>{{2, 816}}},
+                    {45, std::map<int, int>{{3, 1584}}}
             };
     std::map<int, std::vector<std::pair<int, int>>> routes =
             {
@@ -29,17 +29,19 @@ int main() {
     file.open("stats.txt", std::ios::trunc);
     file.close();
 
+		const int SYNC = 0;
+		const int ASYNC = 1;
     int currentTime = 0;
     int MSec2McSec = 1000;
     double durationInMSecs = 100;
     int simulationTime = durationInMSecs*MSec2McSec; // microseconds
 
     // create networking entities
-    auto device2 = new Device(2, 32*MSec2McSec); // microseconds
+    auto device2 = new Device(2, 45*MSec2McSec); // microseconds
     auto device3 = new Device(3, -1); // no dispatches
-    auto device4 = new Device(4, 12*MSec2McSec); // microseconds
+    auto device4 = new Device(4, 30*MSec2McSec); // microseconds
     auto device5 = new Device(5, -1); // no dispatches
-    auto device6 = new Device(6, 8*MSec2McSec); // microseconds
+    auto device6 = new Device(6, 15*MSec2McSec); // microseconds
     auto device7 = new Device(7, -1); // no dispatches
 
     auto router1 = new Router("router1", 4, 1024);
@@ -116,7 +118,7 @@ int main() {
 
         for (auto router : routers)
         {
-            router->Run();
+            router->Run(SYNC);
         }
 
         currentTime++;
